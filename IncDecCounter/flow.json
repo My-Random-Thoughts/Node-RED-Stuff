@@ -1,0 +1,236 @@
+[
+    {
+        "id": "babd27c0cb0e1ab7",
+        "type": "subflow",
+        "name": "inc/dec value",
+        "info": "",
+        "category": "",
+        "in": [
+            {
+                "x": 40,
+                "y": 40,
+                "wires": [
+                    {
+                        "id": "4560f0942a6192a9"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 760,
+                "y": 160,
+                "wires": [
+                    {
+                        "id": "ee41823ecc2c9aef",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [
+            {
+                "name": "start",
+                "type": "num",
+                "value": "",
+                "ui": {
+                    "icon": "font-awesome/fa-hourglass-start",
+                    "label": {
+                        "en-US": "Start"
+                    },
+                    "type": "input",
+                    "opts": {
+                        "types": [
+                            "num"
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "end",
+                "type": "num",
+                "value": "",
+                "ui": {
+                    "icon": "font-awesome/fa-hourglass-end",
+                    "label": {
+                        "en-US": "End"
+                    },
+                    "type": "input",
+                    "opts": {
+                        "types": [
+                            "num"
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "step",
+                "type": "num",
+                "value": "",
+                "ui": {
+                    "icon": "font-awesome/fa-step-forward",
+                    "label": {
+                        "en-US": "Step"
+                    },
+                    "type": "input",
+                    "opts": {
+                        "types": [
+                            "num"
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "duration",
+                "type": "num",
+                "value": "",
+                "ui": {
+                    "icon": "font-awesome/fa-clock-o",
+                    "label": {
+                        "en-US": "Duration (s)"
+                    },
+                    "type": "input",
+                    "opts": {
+                        "types": [
+                            "num"
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "decimals",
+                "type": "str",
+                "value": "0",
+                "ui": {
+                    "icon": "font-awesome/fa-sort-numeric-asc",
+                    "label": {
+                        "en-US": "Decimals"
+                    },
+                    "type": "select",
+                    "opts": {
+                        "opts": [
+                            {
+                                "l": {
+                                    "en-US": "0 (0)"
+                                },
+                                "v": "0"
+                            },
+                            {
+                                "l": {
+                                    "en-US": "1 (0.0)"
+                                },
+                                "v": "1"
+                            },
+                            {
+                                "l": {
+                                    "en-US": "2 (0.00)"
+                                },
+                                "v": "2"
+                            },
+                            {
+                                "l": {
+                                    "en-US": "3 (0.000)"
+                                },
+                                "v": "3"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "meta": {},
+        "color": "#FDD0A2",
+        "icon": "node-red/range.svg"
+    },
+    {
+        "id": "4560f0942a6192a9",
+        "type": "function",
+        "z": "babd27c0cb0e1ab7",
+        "name": "Validate",
+        "func": "msg.start    = msg.start    || env.get(\"start\");\nmsg.end      = msg.end      || env.get(\"end\");\nmsg.duration = msg.duration || env.get(\"duration\");\nmsg.payload  = msg.payload  || msg.start;\nmsg.decimals = msg.decimals || env.get(\"decimals\");\nmsg.step = Math.abs(msg.step) || Math.abs(env.get(\"step\"));\n\nif (!(\"start\"    in msg)) { node.error(\"No 'start' value set\");  return null;}\nif (!(\"end\"      in msg)) { node.error(\"No 'end' value set\");  return null;}\nif (!(\"duration\" in msg)) { node.error(\"No 'duration' value set, using 1 second\");  return null;}\nif (!(\"step\"     in msg)) { node.error(\"No 'step' value set, using 1\");  return null;}\n\nif (msg.duration == 0) { msg.duration = 1; }\nif (msg.step     == 0) { msg.step     = 1; }\nif (msg.start == msg.end) { node.error(\"'start' and 'end' values must be different\"); return null;}\n\n\nreturn [msg, {reset: true}];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 180,
+        "y": 120,
+        "wires": [
+            [
+                "7c09ea68fa60433a"
+            ],
+            [
+                "a9478287ed2b1356"
+            ]
+        ]
+    },
+    {
+        "id": "7c09ea68fa60433a",
+        "type": "function",
+        "z": "babd27c0cb0e1ab7",
+        "name": "Loop",
+        "func": "var numMsg = -1;\nvar rate   = -1;\nvar msgPayload = msg.payload || msg.start;\nif (typeof msg.payload === 'object') { msgPayload = JSON.stringify(msg.payload); }\n\nfunction sendValue(value) {\n    if (msgPayload.toString().match(\"_VALUE_\")) {\n        node.send({\n            \"payload\": JSON.parse(msgPayload.replace(\"_VALUE_\", parseFloat(value).toFixed(msg.decimals))),\n            \"rate\": rate\n        })\n    }\n    else {\n        node.send({\"payload\": parseFloat(value).toFixed(msg.decimals), \"rate\": rate})\n    }\n}\n\nif (msg.start < msg.end) {\n    numMsg = Math.abs(parseInt((msg.end - msg.start) / Math.abs(msg.step)));\n    rate   = Math.abs(parseInt((msg.duration * 1000) / numMsg));\n\n    for (var i = msg.start; i <= msg.end; i += msg.step) {\n        sendValue(i)\n    }\n}\nelse {\n    numMsg = Math.abs(parseInt((msg.start - msg.end) / Math.abs(msg.step)));\n    rate   = Math.abs(parseInt((msg.duration * 1000) / numMsg));\n\n    for (var i = msg.start; i >= msg.end; i -= msg.step) {\n        sendValue(i)\n    }\n}\n\nsendValue(msg.end)    // ensure final value is set\nnode.done();",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 410,
+        "y": 80,
+        "wires": [
+            [
+                "a9478287ed2b1356"
+            ]
+        ]
+    },
+    {
+        "id": "a9478287ed2b1356",
+        "type": "delay",
+        "z": "babd27c0cb0e1ab7",
+        "name": "Rate Limit",
+        "pauseType": "rate",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": true,
+        "outputs": 1,
+        "x": 420,
+        "y": 160,
+        "wires": [
+            [
+                "ee41823ecc2c9aef"
+            ]
+        ]
+    },
+    {
+        "id": "ee41823ecc2c9aef",
+        "type": "change",
+        "z": "babd27c0cb0e1ab7",
+        "name": "Remove .rate",
+        "rules": [
+            {
+                "t": "delete",
+                "p": "rate",
+                "pt": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 600,
+        "y": 160,
+        "wires": [
+            []
+        ]
+    }
+]
